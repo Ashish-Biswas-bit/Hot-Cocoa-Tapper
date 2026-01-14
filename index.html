@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta property="og:title" content="Hot Cocoa Tapper" />
+    <meta property="og:description" content="Retro arcade bar game - serve cocoa to thirsty patrons!" />
+    <meta
+      property="og:image"
+      content="https://mocha-cdn.com/og.png"
+      type="image/png"
+    />
+    <meta
+      property="og:url"
+      content="https://getmocha.com"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:author" content="Mocha" />
+    <meta property="og:site_name" content="Hot Cocoa Tapper" />
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:site" content="@get_mocha" />
+    <meta property="twitter:title" content="Hot Cocoa Tapper" />
+    <meta property="twitter:description" content="Retro arcade bar game - serve cocoa to thirsty patrons!" />
+    <meta
+      property="twitter:image"
+      content="https://mocha-cdn.com/og.png"
+      type="image/png"
+    />
+    <link
+      rel="shortcut icon"
+      href="https://mocha-cdn.com/favicon.ico"
+      type="image/x-icon"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="https://mocha-cdn.com/apple-touch-icon.png"
+      type="image/png"
+    />
+    <title>Hot Cocoa Tapper</title>
+  </head>
+  <body class="bg-gradient-to-br from-amber-950 via-orange-900 to-red-950 min-h-screen flex flex-col overflow-x-hidden">
+    <!-- Header -->
+    <header class="bg-black bg-opacity-80 border-b-2 sm:border-b-4 border-amber-600 py-2 sm:py-4 px-3 sm:px-6 shadow-xl">
+      <div class="mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+        <div class="flex items-center gap-2 sm:gap-4">
+          <div class="text-2xl sm:text-4xl">🍫</div>
+          <div class="text-center sm:text-left">
+            <h1 class="text-2xl sm:text-4xl font-bold text-amber-200 tracking-wider font-mono leading-tight">
+              HOT COCOA<span class="hidden sm:inline"> </span>TAPPER
+            </h1>
+            <p class="text-amber-400 text-xs sm:text-sm font-mono">Retro Arcade Game</p>
+          </div>
+        </div>
+        <div class="text-center sm:text-right text-xs sm:text-sm">
+          <p class="text-amber-300 font-mono">Press SPACE to Start</p>
+          <p class="text-amber-500 font-mono mt-1">↑↓ or W/S to Move</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 md:p-6 w-full">
+      <div id="root" class="w-full px-2 sm:px-4"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-black bg-opacity-80 border-t-2 sm:border-t-4 border-amber-600 py-3 sm:py-4 px-3 sm:px-6 mt-auto">
+      <div class="mx-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-amber-200 font-mono text-xs sm:text-sm mb-3 sm:mb-4">
+          <div>
+            <p class="font-bold text-amber-400 mb-1 text-sm">📖 HOW TO PLAY</p>
+            <ul class="text-xs space-y-0.5 opacity-80">
+              <li>• Hold SPACE to fill</li>
+              <li>• Release to serve</li>
+              <li>• 70%+ fill = bonus</li>
+              <li>• 60s per level</li>
+            </ul>
+          </div>
+          <div>
+            <p class="font-bold text-amber-400 mb-1 text-sm">⚡ MECHANICS</p>
+            <ul class="text-xs space-y-0.5 opacity-80">
+              <li>• Beat impatience!</li>
+              <li>• 70% = good score</li>
+              <li>• Miss = -points</li>
+              <li>• Reach goal advance</li>
+            </ul>
+          </div>
+          <div class="sm:col-span-2 lg:col-span-1">
+            <p class="font-bold text-amber-400 mb-1 text-sm">🎮 DIFFICULTY</p>
+            <ul class="text-xs space-y-0.5 opacity-80">
+              <li>• Level = faster pace</li>
+              <li>• Impatience increases</li>
+              <li>• Higher score needs</li>
+              <li>• More points earned</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="border-t border-amber-600 pt-2 sm:pt-4 text-center text-amber-300 text-xs opacity-75">
+          <p>Made with ☕ and ❤️ | Hot Cocoa Tapper © 2026</p>
+          <p class="mt-1">Mocha Community Game</p>
+        </div>
+      </div>
+    </footer>
+
+    <script type="module" src="./src/app/main.ts"></script>
+  </body>
+</html>
