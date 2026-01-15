@@ -1,6 +1,16 @@
 import { GameState, Patron, Mug } from './types';
 import { GameRenderer } from './GameRenderer';
 
+// Ad and monetization hooks - called at key game moments
+// Implement these callbacks to integrate your ad network
+export interface GameCallbacks {
+  onLevelComplete?: (level: number, score: number) => void;
+  onGameOver?: (finalScore: number, level: number) => void;
+  onComboMilestone?: (comboCount: number) => void;
+  onPause?: () => void;
+  onResumeAfterAd?: () => void;
+}
+
 export class Game {
   private state: GameState;
   private renderer: GameRenderer | null = null;
@@ -10,20 +20,26 @@ export class Game {
   private keysHeld = new Set<string>();
   private spawnAcc = 0;
   private prevTime: number | null = null;
+  private callbacks: GameCallbacks = {};
+  private suppressNextServe = false; // block first space release after starting
 
   // Responsive Canvas Dimensions
-  private CANVAS_WIDTH = 800;
-  private CANVAS_HEIGHT = 600;
-  private readonly LANE_HEIGHT = 120;
-  private readonly LANE_Y_OFFSET = 100;
+  private CANVAS_WIDTH = 1200;
+  private CANVAS_HEIGHT = 900;
+  private readonly LANE_HEIGHT = 100;
+  private readonly LANE_Y_OFFSET = 50;
   private readonly BARTENDER_X = 100;
-  private readonly BASE_PATRON_SPEED = 0.8;
-  private readonly MUG_SPEED = 4;
-  private readonly BASE_PATRON_WAIT_TIME = 3000;
-  private readonly FILL_SPEED = 2;
+  private readonly BASE_PATRON_SPEED = 0.9; // slower patrons for easier catching
+  private readonly MUG_SPEED = 3.6; // slightly slower slide to force timing
+  private readonly MUG_RETURN_SPEED = 3.4; // quicker returns to test catching
+  private readonly BASE_PATRON_WAIT_TIME = 2800; // more patience time
+  private readonly DRINKING_TIME = 1000;
+  private readonly CATCH_RANGE = 45; // tighter catch window
+  private readonly COMBO_TIMEOUT = 5000; // quicker combo drop-off
+  private readonly FILL_SPEED = 1.6; // slower fill to require commitment
   private readonly MAX_FILL = 100;
-  private readonly MIN_ACCEPTABLE_FILL = 70;
-  private readonly LEVEL_TIME = 60000;
+  private readonly MIN_ACCEPTABLE_FILL = 80; // demand better fills for bonus
+  private readonly LEVEL_TIME = 60000; // 60 seconds per level
 
   constructor() {
     this.state = this.getInitialState();
@@ -59,8 +75,8 @@ export class Game {
       // Tablets: use 80% of available width, cap at 700px
       maxWidth = Math.min(availableWidth * 0.8, 700);
     } else {
-      // Large screens: use optimal width, cap at 850px
-      maxWidth = Math.min(availableWidth, 850);
+      // Large screens: use optimal width, cap at 1200px
+      maxWidth = Math.min(availableWidth, 1200);
     }
     
     // Also consider height constraints to prevent overflow
@@ -70,11 +86,12 @@ export class Game {
     const constrainedWidth = Math.min(maxWidth, maxWidthFromHeight);
     
     // Set final dimensions with min/max bounds
-    this.CANVAS_WIDTH = Math.max(280, Math.min(constrainedWidth, 900));
+    this.CANVAS_WIDTH = Math.max(280, Math.min(constrainedWidth, 1200));
     this.CANVAS_HEIGHT = Math.round(this.CANVAS_WIDTH / aspectRatio);
   }
 
   private getInitialState(): GameState {
+    const savedHighScore = localStorage.getItem('hotcocoatapper_highscore');
     return {
       score: 0,
       lives: 3,
@@ -84,12 +101,29 @@ export class Game {
       patrons: [],
       mugs: [],
       bartenderLane: 1,
+      bartenderState: 'IDLE',
+      bartenderFacing: 'right',
       isFillingMug: false,
       currentFillLevel: 0,
       health: 100,
       timeLeft: this.LEVEL_TIME,
       levelStartTime: 0,
+      combo: 0,
+      maxCombo: 0,
+      lastServeTime: 0,
+      screenShake: 0,
+      totalServes: 0,
+      perfectServes: 0,
+      highScore: savedHighScore ? parseInt(savedHighScore) : 0,
     };
+  }
+
+  /**
+   * Set up monetization callbacks for ad integration
+   * Call this to hook into key game moments for ad placements
+   */
+  public setCallbacks(callbacks: GameCallbacks): void {
+    this.callbacks = callbacks;
   }
 
   public init(): void {
@@ -101,12 +135,13 @@ export class Game {
     }
 
     root.innerHTML = `
-      <div class="flex flex-col items-center justify-center gap-3 sm:gap-4 md:gap-6 w-full">
-        <!-- Game Canvas Section -->
-        <div class="relative w-full flex justify-center px-2 sm:px-0">
+      <div class="flex items-center justify-center w-screen h-screen fixed inset-0">
+        <div class="flex flex-col items-center justify-center gap-3 sm:gap-4 md:gap-6 w-full max-w-4xl mx-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8">
+          <!-- Game Canvas Section -->
+          <div class="relative w-full flex justify-center rounded-xl shadow-2xl" style="padding: 10px 191px;">
           <canvas id="game-canvas" width="${this.CANVAS_WIDTH}" height="${this.CANVAS_HEIGHT}"
-                  class="border-2 sm:border-4 border-amber-600 rounded-lg shadow-2xl bg-gradient-to-b from-amber-900 to-amber-950 w-full max-w-full h-auto"
-                  style="display: block; aspect-ratio: 4/3;">
+                  class="border-4 sm:border-6 md:border-8 border-amber-600 rounded-lg shadow-2xl bg-gradient-to-b from-amber-900 to-amber-950"
+                  style="display: block; aspect-ratio: 4/3; max-width: 100%;">
           </canvas>
           
           <!-- Retro-style decorative elements (hidden on mobile) -->
@@ -190,7 +225,12 @@ export class Game {
     this.keysHeld.add(event.key);
 
     if (event.code === 'Space' && !this.state.isPlaying) {
+      // Start game but prevent immediate serve from this space press
+      this.keysHeld.delete(' ');
+      this.keysHeld.delete('Space');
+      this.suppressNextServe = true;
       this.startGame();
+      return;
     } else if (this.state.isPlaying) {
       if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') {
         this.moveBartender('up');
@@ -204,22 +244,32 @@ export class Game {
     event.preventDefault();
     this.keysHeld.delete(event.key);
 
-    if ((event.key === ' ' || event.key === 'Space') && this.state.isFillingMug) {
-      this.serveMug();
+    if (event.key === ' ' || event.key === 'Space') {
+      if (this.suppressNextServe) {
+        this.suppressNextServe = false;
+        return;
+      }
+      if (this.state.isFillingMug) {
+        this.serveMug();
+      }
     }
   }
 
   private moveBartender(direction: 'up' | 'down'): void {
-    if (!this.state.isPlaying) return;
+    if (!this.state.isPlaying || this.state.bartenderState !== 'IDLE') return;
 
     let newLane = this.state.bartenderLane;
     if (direction === 'up' && newLane > 0) {
       newLane--;
-    } else if (direction === 'down' && newLane < 3) {
+    } else if (direction === 'down' && newLane < 2) {
       newLane++;
     }
 
     this.state.bartenderLane = newLane;
+    
+    // Update bartender facing based on lane activity
+    const hasPatronInLane = this.state.patrons.some(p => p.lane === newLane && !p.served);
+    this.state.bartenderFacing = hasPatronInLane ? 'right' : 'left';
   }
 
   private getLaneY(lane: number): number {
@@ -231,18 +281,35 @@ export class Game {
       return;
     }
 
+    // Find waiting patron in current lane
+    const targetPatron = this.state.patrons.find(
+      p => p.lane === this.state.bartenderLane && p.isWaiting && !p.served
+    );
+
     const mug: Mug = {
       id: this.mugId++,
       x: this.BARTENDER_X + 80,
       y: this.getLaneY(this.state.bartenderLane),
       lane: this.state.bartenderLane,
-      speed: this.MUG_SPEED,
+      speed: this.MUG_SPEED + (this.state.level - 1) * 0.2,
       fillLevel: this.state.currentFillLevel,
+      state: 'sliding_forward',
+      isEmpty: false,
+      targetPatronId: targetPatron?.id,
     };
 
     this.state.mugs.push(mug);
     this.state.isFillingMug = false;
     this.state.currentFillLevel = 0;
+    this.state.bartenderState = 'SLIDING_MUG';
+    this.state.bartenderFacing = 'right';
+    
+    // Return to idle after a short delay
+    setTimeout(() => {
+      if (this.state.bartenderState === 'SLIDING_MUG') {
+        this.state.bartenderState = 'IDLE';
+      }
+    }, 300);
   }
 
   public startGame(): void {
@@ -280,6 +347,9 @@ export class Game {
       const requiredScore = this.state.level * 2000;
       if (this.state.score >= requiredScore) {
         // Level completed!
+        const completedLevel = this.state.level;
+        const scoreBeforeLevelUp = this.state.score;
+        
         this.state.level++;
         this.state.timeLeft = this.LEVEL_TIME;
         this.state.levelStartTime = now;
@@ -287,12 +357,23 @@ export class Game {
         this.state.health = Math.min(100, this.state.health + 25);
         this.state.patrons = [];
         this.state.mugs = [];
+        
+        // MONETIZATION HOOK: Level complete - good place for ads or achievements
+        if (this.callbacks.onLevelComplete) {
+          this.callbacks.onLevelComplete(completedLevel, scoreBeforeLevelUp);
+        }
       } else {
         // Game over
         this.state.gameOver = true;
         this.state.isPlaying = false;
         this.state.timeLeft = 0;
         this.updateUI();
+        
+        // MONETIZATION HOOK: Game over - interstitial ad opportunity
+        if (this.callbacks.onGameOver) {
+          this.callbacks.onGameOver(this.state.score, this.state.level);
+        }
+        
         return;
       }
     }
@@ -314,43 +395,73 @@ export class Game {
 
     // Spawn patrons
     this.spawnAcc += deltaTime;
-    const baseSpawnInterval = Math.max(300, 1000 - (this.state.level - 1) * 150);
-    const spawnInterval = Math.max(100, baseSpawnInterval / difficultyMultiplier);
+    const baseSpawnInterval = Math.max(700, 1600 - (this.state.level - 1) * 150); // slower spawn rate
+    const spawnInterval = Math.max(200, baseSpawnInterval / difficultyMultiplier);
 
-    let spawnsThisFrame = 0;
-    while (this.spawnAcc >= spawnInterval && spawnsThisFrame < 3) {
+    if (this.spawnAcc >= spawnInterval) {
       this.spawnAcc -= spawnInterval;
-      spawnsThisFrame++;
-
-      const lane = Math.floor(Math.random() * 4);
-      const patron: Patron = {
-        id: this.patronId++,
-        x: this.CANVAS_WIDTH - 60,
-        y: this.getLaneY(lane),
-        lane,
-        speed: patronSpeed + Math.random() * 0.5,
-        served: false,
-        waitingTime: 0,
-        isWaiting: this.state.level === 1 ? false : true,
-        patience: patronWaitTime + Math.random() * 500,
-        spriteIndex: Math.floor(Math.random() * 4),
-      };
-      this.state.patrons.push(patron);
+      // Spawn patrons in all 3 lanes at once, but only if lane is empty
+      for (let lane = 0; lane < 3; lane++) {
+        // Check if there's already a patron in this lane
+        const hasPatronInLane = this.state.patrons.some(p => p.lane === lane && !p.served);
+        // Check if a mug is still out (forward, at patron, or sliding back) in this lane
+        const mugOutInLane = this.state.mugs.some(m => m.lane === lane && m.state !== 'empty');
+        // Only spawn if lane is clear of patron AND mug
+        if (!hasPatronInLane && !mugOutInLane) {
+          const patron: Patron = {
+            id: this.patronId++,
+            x: this.CANVAS_WIDTH - 60,
+            y: this.getLaneY(lane),
+            lane,
+            speed: patronSpeed + Math.random() * 0.5,
+            served: false,
+            waitingTime: 0,
+            isWaiting: this.state.level === 1 ? false : true,
+            patience: patronWaitTime + Math.random() * 500,
+            spriteIndex: Math.floor(Math.random() * 4),
+            isDrinking: false,
+            drinkingProgress: 0,
+            stepTimer: 0,
+          };
+          this.state.patrons.push(patron);
+        }
+      }
     }
 
     // Update patrons
     this.state.patrons = this.state.patrons
       .map(patron => {
-        if (patron.served) {
-          return { ...patron, x: patron.x + (8 * deltaTime) / 16 };
+        if (patron.isDrinking) {
+          // Patron is drinking, update drinking progress
+          const newDrinkingProgress = patron.drinkingProgress + deltaTime;
+          if (newDrinkingProgress >= this.DRINKING_TIME) {
+            return { ...patron, isDrinking: false, drinkingProgress: this.DRINKING_TIME, served: true };
+          }
+          return { ...patron, drinkingProgress: newDrinkingProgress };
+        } else if (patron.served) {
+          // Patron leaves more slowly after being served
+          return { ...patron, x: patron.x + (3 * deltaTime) / 16 };
         } else if (patron.isWaiting) {
           const newWaitingTime = patron.waitingTime + deltaTime;
           if (newWaitingTime >= patron.patience) {
-            return { ...patron, isWaiting: false, waitingTime: newWaitingTime };
+            // FAILURE: Patron timeout - they lost patience!
+            this.state.health = Math.max(0, this.state.health - 30);
+            this.state.recentFailure = { type: 'timeout', timestamp: Date.now() };
+            this.state.combo = 0; // TIMEOUT - reset combo
+            return { ...patron, isWaiting: false, waitingTime: newWaitingTime, served: true };
           }
           return { ...patron, waitingTime: newWaitingTime };
         } else {
-          return { ...patron, x: patron.x - patron.speed * (deltaTime / 16) };
+          // Step-based movement for walking animation
+          const newStepTimer = patron.stepTimer + deltaTime;
+          const stepInterval = 200; // take a step every 200ms
+          
+          if (newStepTimer >= stepInterval) {
+            // Take a step forward
+            const stepSize = 8; // pixels per step
+            return { ...patron, x: patron.x - stepSize, stepTimer: newStepTimer - stepInterval };
+          }
+          return { ...patron, stepTimer: newStepTimer };
         }
       })
       .filter(patron => {
@@ -361,37 +472,72 @@ export class Game {
         }
       });
 
-    // Update mugs
-    this.state.mugs = this.state.mugs
-      .map(mug => ({ ...mug, x: mug.x + mug.speed }))
-      .filter(mug => mug.x < this.CANVAS_WIDTH);
+    // Update mugs with new physics
+    this.state.mugs = this.state.mugs.map(mug => {
+      if (mug.state === 'sliding_forward') {
+        return { ...mug, x: mug.x + mug.speed };
+      } else if (mug.state === 'at_patron') {
+        // Mug is with patron, waiting for drinking to finish
+        return mug;
+      } else if (mug.state === 'sliding_back') {
+        const returnSpeed = this.MUG_RETURN_SPEED * (1 + (this.state.level - 1) * 0.35);
+        return { ...mug, x: mug.x - returnSpeed };
+      }
+      return mug;
+    });
 
-    // Check collisions
-    const { newPatrons, newMugs, scoreIncrease, healthIncrease } = this.checkCollisions();
+    // Check mug-patron collisions and mug catching
+    const { newPatrons, newMugs, scoreIncrease, healthIncrease, healthLoss } = this.checkMugCollisions();
     this.state.patrons = newPatrons;
     this.state.mugs = newMugs;
     this.state.score += scoreIncrease;
+    this.state.health = Math.min(100, Math.max(0, this.state.health + healthIncrease - healthLoss));
+    
+    // MONETIZATION HOOK: Combo milestones (5x, 10x, 20x combos)
+    // Can trigger special rewards, ads, or celebrations
+    const comboMilestones = [5, 10, 20];
+    const prevCombo = Math.max(0, this.state.combo - 1);
+    for (const milestone of comboMilestones) {
+      if (prevCombo < milestone && this.state.combo >= milestone && this.callbacks.onComboMilestone) {
+        this.callbacks.onComboMilestone(milestone);
+      }
+    }
 
     // Handle patrons reaching bartender
     const patronsAtBartender = this.state.patrons.filter(
-      p => !p.served && p.x <= this.BARTENDER_X + 20
+      p => !p.served && !p.isDrinking && p.x <= this.BARTENDER_X + 20
     );
     this.state.patrons = this.state.patrons.filter(
-      p => p.served || p.x > this.BARTENDER_X + 20
+      p => p.served || p.isDrinking || p.x > this.BARTENDER_X + 20
     );
 
     const HEALTH_LOSS_PER_PATRON = 20;
-    const healthLoss = patronsAtBartender.length * HEALTH_LOSS_PER_PATRON;
-    this.state.health = Math.min(100, Math.max(0, this.state.health - healthLoss + healthIncrease));
+    const patronHealthLoss = patronsAtBartender.length * HEALTH_LOSS_PER_PATRON;
+    this.state.health = Math.max(0, this.state.health - patronHealthLoss);
 
     // Handle mug filling
     if (this.keysHeld.has(' ') || this.keysHeld.has('Space')) {
       this.state.isFillingMug = true;
+      this.state.bartenderState = 'FILLING_MUG';
+      this.state.bartenderFacing = 'left';
       this.state.currentFillLevel = Math.min(this.MAX_FILL, this.state.currentFillLevel + this.FILL_SPEED);
+    } else if (this.state.bartenderState === 'FILLING_MUG' && !this.state.isFillingMug) {
+      this.state.bartenderState = 'IDLE';
     }
 
     // Update time
     this.state.timeLeft = newTimeLeft;
+
+    // Decay screen shake
+    if (this.state.screenShake > 0) {
+      this.state.screenShake = Math.max(0, this.state.screenShake - 0.5);
+    }
+
+    // Update high score
+    if (this.state.score > this.state.highScore) {
+      this.state.highScore = this.state.score;
+      localStorage.setItem('hotcocoatapper_highscore', String(this.state.highScore));
+    }
 
     // Check game over
     if (this.state.health <= 0) {
@@ -408,44 +554,151 @@ export class Game {
     }
   };
 
-  private checkCollisions(): { newPatrons: Patron[], newMugs: Mug[], scoreIncrease: number, healthIncrease: number } {
+  private checkMugCollisions(): { 
+    newPatrons: Patron[], 
+    newMugs: Mug[], 
+    scoreIncrease: number, 
+    healthIncrease: number,
+    healthLoss: number 
+  } {
     const newPatrons = [...this.state.patrons];
     const newMugs = [...this.state.mugs];
     let scoreIncrease = 0;
     let healthIncrease = 0;
+    let healthLoss = 0;
 
+    // Check forward-sliding mugs hitting patrons
     for (let mugIndex = this.state.mugs.length - 1; mugIndex >= 0; mugIndex--) {
       const mug = this.state.mugs[mugIndex];
-      let mugCaught = false;
 
-      for (let patronIndex = 0; patronIndex < this.state.patrons.length; patronIndex++) {
-        const patron = this.state.patrons[patronIndex];
-        if (
-          mug.lane === patron.lane &&
-          Math.abs(mug.x - patron.x) < 40 &&
-          !patron.served
-        ) {
-          if (mug.fillLevel >= this.MIN_ACCEPTABLE_FILL) {
-            newPatrons[patronIndex] = { ...patron, served: true };
-            scoreIncrease += Math.floor(mug.fillLevel) + 50;
+      if (mug.state === 'sliding_forward') {
+        // Check collision with patron
+        for (let patronIndex = 0; patronIndex < this.state.patrons.length; patronIndex++) {
+          const patron = this.state.patrons[patronIndex];
+          if (
+            mug.lane === patron.lane &&
+            mug.x >= patron.x - 20 &&
+            mug.x <= patron.x + 40 &&
+            !patron.served &&
+            !patron.isDrinking
+          ) {
+            // Mug hit patron - SUCCESSFUL SERVE
+            const now = Date.now();
+            const timeSinceLastServe = now - this.state.lastServeTime;
+            const isCombo = timeSinceLastServe < this.COMBO_TIMEOUT;
+            
+            if (isCombo) {
+              this.state.combo++;
+            } else {
+              this.state.combo = 1;
+            }
+            this.state.lastServeTime = now;
+            this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+            
+            // Track serves
+            this.state.totalServes++;
+            if (mug.fillLevel >= this.MIN_ACCEPTABLE_FILL) {
+              this.state.perfectServes++;
+            }
+            
+            // Screen shake and combo popup for big combos!
+            if (this.state.combo >= 3) {
+              this.state.screenShake = Math.min(15, this.state.combo * 2);
+              this.state.comboPopup = { value: this.state.combo, timestamp: now };
+            }
+            
+            // Screen shake and combo popup for big combos!
+            if (this.state.combo >= 3) {
+              this.state.screenShake = Math.min(15, this.state.combo * 2);
+              this.state.comboPopup = { value: this.state.combo, timestamp: now };
+            }
+            
+            // Calculate score with combo multiplier
+            const comboMultiplier = 1 + (this.state.combo - 1) * 0.15; // softer scaling
+            const baseScore = mug.fillLevel >= this.MIN_ACCEPTABLE_FILL 
+              ? Math.floor(mug.fillLevel) + 30 
+              : 5; // weaker low-fill reward
+            const comboBonus = this.state.combo > 1 ? Math.floor(baseScore * (this.state.combo - 1) * 0.3) : 0;
+            const totalScore = Math.floor((baseScore + comboBonus) * comboMultiplier);
+            scoreIncrease += totalScore;
+
+            // Apply knockback scaled by fill level
+            const knockbackDist = 60 + Math.floor(Math.min(40, mug.fillLevel));
+            newPatrons[patronIndex] = { 
+              ...patron, 
+              isDrinking: true, 
+              drinkingProgress: 0, 
+              x: patron.x + knockbackDist,
+              isWaiting: true // Patron now waits in place while drinking
+            };
+            // Do NOT return mug yet; wait until patron leaves screen
+            newMugs[mugIndex] = { ...mug, state: 'at_patron', isEmpty: false, fillLevel: mug.fillLevel, x: patron.x, y: patron.y, targetPatronId: patron.id };
             healthIncrease += 2;
-          } else {
-            scoreIncrease += 10;
-            newPatrons[patronIndex] = { ...patron, served: true, isWaiting: false };
-          }
-          newMugs.splice(mugIndex, 1);
-          mugCaught = true;
-          break;
-        }
-      }
 
-      if (!mugCaught && mug.x >= this.CANVAS_WIDTH - 50) {
-        scoreIncrease -= 1;
-        newMugs.splice(mugIndex, 1);
+            // Chain push patrons behind in the same lane
+            const minSpacing = 48;
+            const behind = newPatrons
+              .map((p, idx) => ({ p, idx }))
+              .filter(({ p, idx }) => idx !== patronIndex && p.lane === patron.lane && !p.served && p.x >= patron.x)
+              .sort((a, b) => a.p.x - b.p.x);
+            let lastX = newPatrons[patronIndex].x;
+            for (const { p, idx } of behind) {
+              if (p.x - lastX < minSpacing) {
+                const newX = lastX + minSpacing;
+                newPatrons[idx] = { ...p, x: newX };
+                lastX = newX;
+              } else {
+                lastX = p.x;
+              }
+            }
+            break;
+          }
+        }
+
+        // Check if mug fell off the bar
+        if (mug.x >= this.CANVAS_WIDTH - 30) {
+          newMugs.splice(mugIndex, 1);
+          healthLoss += 5;
+          this.state.combo = 0; // MISS - reset combo
+        }
+      } else if (mug.state === 'at_patron') {
+        // Make mug follow patron until patron leaves screen
+        const patron = newPatrons.find(p => p.id === mug.targetPatronId);
+        if (patron && patron.x < this.CANVAS_WIDTH) {
+          // Mug follows patron's position
+          newMugs[mugIndex] = { ...mug, x: patron.x, y: patron.y };
+        } else {
+          // Patron has left, send empty mug back
+          newMugs[mugIndex] = { 
+            ...mug, 
+            state: 'sliding_back', 
+            isEmpty: true,
+            fillLevel: 0 
+          };
+        }
+      } else if (mug.state === 'sliding_back') {
+        // Check if player catches the returning mug
+        const bartenderY = this.getLaneY(this.state.bartenderLane);
+        const mugY = mug.y;
+        const inCatchRange = mug.x <= this.BARTENDER_X + this.CATCH_RANGE && 
+                            mug.x >= this.BARTENDER_X - 20;
+        
+        if (inCatchRange && Math.abs(mugY - bartenderY) < 30) {
+          // Successfully caught!
+          newMugs.splice(mugIndex, 1);
+          scoreIncrease += 20;
+        } else if (mug.x <= this.BARTENDER_X - 40) {
+          // FAILURE: Missed the catch!
+          newMugs.splice(mugIndex, 1);
+          healthLoss += 15;
+          scoreIncrease -= Math.floor(20 * this.state.combo); // Penalty scales with combo
+          this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
+          this.state.combo = 0; // MISS - reset combo
+        }
       }
     }
 
-    return { newPatrons, newMugs, scoreIncrease, healthIncrease };
+    return { newPatrons, newMugs, scoreIncrease, healthIncrease, healthLoss };
   }
 
   private updateUI(): void {
