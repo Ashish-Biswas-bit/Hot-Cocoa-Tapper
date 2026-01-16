@@ -1,5 +1,56 @@
 # ☕ Hot Cocoa Tapper
 
+## 📦 Dependencies & Configuration
+This project uses several tools, libraries, and configuration files. Here is a summary of what is used and where to configure or modify them:
+
+### Main Dependencies
+
+- **TypeScript**: Main language for all source files. Configured via `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`, and `tsconfig.worker.json`.
+- **Vite**: Build tool and dev server. Configured in `vite.config.ts`.
+- **Tailwind CSS**: Utility-first CSS framework for styling. Configured in `tailwind.config.js` and used in `src/app/index.css` and `index.html`.
+- **ESLint**: Linting for code quality. Configured in `eslint.config.js`.
+- **PostCSS**: CSS processing pipeline. Configured in `postcss.config.js`.
+- **Cloudflare Wrangler**: Deployment to Cloudflare Workers. Configured in `wrangler.json`.
+- **Mocha**: Testing framework (for unit tests).
+- **Hono**: Web framework for serverless functions (used in worker).
+- **Zod**: Validation library (used in worker).
+
+### Key Configuration Files
+
+- `vite.config.ts`: Vite build and dev server settings, plugin configuration, and path aliases.
+- `tailwind.config.js`: Tailwind CSS settings, content paths, and theme extensions.
+- `eslint.config.js`: ESLint rules, plugins, and file ignores for linting TypeScript and React code.
+- `postcss.config.js`: PostCSS plugins (Tailwind CSS, Autoprefixer).
+- `wrangler.json`: Cloudflare Worker deployment settings, database and bucket bindings.
+- `tsconfig*.json`: TypeScript compiler options for app, node, and worker environments.
+
+### Where to Do Things
+
+- **Add/Change Game Logic**: Edit files in `src/app/` (e.g., `Game.ts`, `GameRenderer.ts`).
+- **Change UI/Styling**: Edit `src/app/index.css` (for Tailwind), or update classes in `index.html` and React components.
+- **Add/Change Worker Logic**: Edit `src/worker/index.ts` (for serverless backend).
+- **Update Shared Types**: Edit `src/shared/types.ts`.
+- **Configure Build/Dev Server**: Edit `vite.config.ts`.
+- **Configure CSS**: Edit `tailwind.config.js` and `postcss.config.js`.
+- **Configure Linting**: Edit `eslint.config.js`.
+- **Configure Deployment**: Edit `wrangler.json`.
+- **Install/Update Packages**: Use `npm install <package>` and update `package.json`.
+
+### Scripts
+
+- `npm run dev`: Start development server (Vite)
+- `npm run build`: Build for production
+- `npm run lint`: Run ESLint
+- `npm run check`: Type-check, build, and dry-run deploy
+
+### How Everything Connects
+
+- The game runs in the browser, rendering to a canvas in `index.html` via logic in `src/app/Game.ts` and `src/app/GameRenderer.ts`.
+- Styling is handled by Tailwind CSS classes in HTML and CSS files.
+- Cloudflare Worker logic (optional) is in `src/worker/index.ts` and deployed/configured via Wrangler.
+- All configuration files are at the project root and control build, lint, style, and deployment behavior.
+
+For any change, locate the relevant file above and edit as needed. For new dependencies, add them to `package.json` and run `npm install`.
 A retro arcade-style bar tending game where you serve hot cocoa to impatient patrons! Built with TypeScript and Vite for the Mocha community.
 
 ## 🎮 Game Overview
