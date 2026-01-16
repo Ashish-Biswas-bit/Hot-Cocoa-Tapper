@@ -12,6 +12,9 @@ export interface GameCallbacks {
 }
 
 export class Game {
+    // --- Monetization/Ad/Discount Hooks ---
+    // Call this to show an ad (interstitial, rewarded, etc.)
+// Remove unused showAd and offerDiscount functions for now
   private state: GameState;
   private renderer: GameRenderer | null = null;
   private gameLoopId: number | null = null;
@@ -23,11 +26,11 @@ export class Game {
   private callbacks: GameCallbacks = {};
   private suppressNextServe = false; // block first space release after starting
 
-  // Responsive Canvas Dimensions
-  private CANVAS_WIDTH = 1200;
-  private CANVAS_HEIGHT = 900;
+  // Fixed Smaller Canvas Dimensions
+  private CANVAS_WIDTH = 700;
+  private CANVAS_HEIGHT = 550;
   private readonly LANE_HEIGHT = 100;
-  private readonly LANE_Y_OFFSET = 50;
+  private readonly LANE_Y_OFFSET = 130;
   private readonly BARTENDER_X = 100;
   private readonly BASE_PATRON_SPEED = 0.9; // slower patrons for easier catching
   private readonly MUG_SPEED = 3.6; // slightly slower slide to force timing
@@ -43,52 +46,10 @@ export class Game {
 
   constructor() {
     this.state = this.getInitialState();
-    // Set responsive dimensions
-    this.calculateResponsiveDimensions();
-    // Update on window resize
-    window.addEventListener('resize', () => {
-      this.calculateResponsiveDimensions();
-    });
+    // Fixed size: do not recalculate on resize
   }
 
-  private calculateResponsiveDimensions(): void {
-    // Calculate dimensions based on viewport
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    // Calculate available width accounting for padding (16px on each side)
-    const availableWidth = viewportWidth - 32;
-    const availableHeight = viewportHeight - 200; // Account for header, footer, controls, scoreboard
-    
-    const aspectRatio = 4 / 3; // 800x600 aspect ratio
-    
-    // Calculate max width based on both available space and device type
-    let maxWidth: number;
-    
-    if (viewportWidth < 480) {
-      // Small phones: use 90% of available width
-      maxWidth = Math.min(availableWidth, viewportWidth * 0.85);
-    } else if (viewportWidth < 768) {
-      // Phones and small tablets: use 90% of available width, cap at 600px
-      maxWidth = Math.min(availableWidth * 0.95, 600);
-    } else if (viewportWidth < 1024) {
-      // Tablets: use 80% of available width, cap at 700px
-      maxWidth = Math.min(availableWidth * 0.8, 700);
-    } else {
-      // Large screens: use optimal width, cap at 1200px
-      maxWidth = Math.min(availableWidth, 1200);
-    }
-    
-    // Also consider height constraints to prevent overflow
-    const maxWidthFromHeight = Math.floor(availableHeight * aspectRatio);
-    
-    // Use the smaller of width-based or height-based constraints
-    const constrainedWidth = Math.min(maxWidth, maxWidthFromHeight);
-    
-    // Set final dimensions with min/max bounds
-    this.CANVAS_WIDTH = Math.max(280, Math.min(constrainedWidth, 1200));
-    this.CANVAS_HEIGHT = Math.round(this.CANVAS_WIDTH / aspectRatio);
-  }
+// Remove unused calculateResponsiveDimensions function for now
 
   private getInitialState(): GameState {
     const savedHighScore = localStorage.getItem('hotcocoatapper_highscore');
@@ -100,7 +61,7 @@ export class Game {
       gameOver: false,
       patrons: [],
       mugs: [],
-      bartenderLane: 1,
+      bartenderLane: 0,
       bartenderState: 'IDLE',
       bartenderFacing: 'right',
       isFillingMug: false,
@@ -139,31 +100,21 @@ export class Game {
         <div class="flex flex-col items-center justify-center gap-3 sm:gap-4 md:gap-6 w-full max-w-4xl mx-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8">
           <!-- Game Canvas Section -->
           <div class="relative w-full flex justify-center rounded-xl shadow-2xl" style="padding: 10px 191px;">
-          <canvas id="game-canvas" width="${this.CANVAS_WIDTH}" height="${this.CANVAS_HEIGHT}"
-                  class="border-4 sm:border-6 md:border-8 border-amber-600 rounded-lg shadow-2xl bg-gradient-to-b from-amber-900 to-amber-950"
-                  style="display: block; aspect-ratio: 4/3; max-width: 100%;">
-          </canvas>
-          
-          <!-- Retro-style decorative elements (hidden on mobile) -->
-          <div class="hidden sm:block absolute -top-3 sm:-top-4 -left-3 sm:-left-4 w-6 sm:w-8 h-6 sm:h-8 bg-amber-400 rounded-full opacity-70 animate-pulse"></div>
-          <div class="hidden sm:block absolute -top-3 sm:-top-4 -right-3 sm:-right-4 w-6 sm:w-8 h-6 sm:h-8 bg-orange-400 rounded-full opacity-70 animate-pulse delay-1000"></div>
-          <div class="hidden sm:block absolute -bottom-3 sm:-bottom-4 -left-3 sm:-left-4 w-6 sm:w-8 h-6 sm:h-8 bg-red-400 rounded-full opacity-70 animate-pulse delay-2000"></div>
-          <div class="hidden sm:block absolute -bottom-3 sm:-bottom-4 -right-3 sm:-right-4 w-6 sm:w-8 h-6 sm:h-8 bg-amber-400 rounded-full opacity-70 animate-pulse delay-3000"></div>
-        </div>
-
-        <!-- Game Info Section -->
-        <div class="w-full space-y-2 sm:space-y-3 md:space-y-4 px-2 sm:px-0">
-          <!-- Controls Info -->
-          <div class="bg-black bg-opacity-70 rounded-lg px-3 sm:px-6 py-2 sm:py-3 border border-amber-600 text-center">
-            <p class="text-amber-200 font-mono text-xs sm:text-sm">
-              <span class="text-amber-400 font-bold">↑↓/W/S</span> move • 
-              <span class="text-amber-400 font-bold">SPACE</span> fill & serve
-            </p>
+            <canvas id="game-canvas" width="${this.CANVAS_WIDTH}" height="${this.CANVAS_HEIGHT}"
+                    class="border-4 sm:border-6 md:border-8 border-amber-600 rounded-lg shadow-2xl bg-gradient-to-b from-amber-900 to-amber-950"
+                    style="display: block; aspect-ratio: 4/3; max-width: 100%;">
+            </canvas>
+            <!-- Retro-style decorative elements (hidden on mobile) -->
+            <div class="hidden sm:block absolute -top-3 sm:-top-4 -left-3 sm:-left-4 w-6 sm:w-8 h-6 sm:h-8 bg-amber-400 rounded-full opacity-70 animate-pulse"></div>
+            <div class="hidden sm:block absolute -top-3 sm:-top-4 -right-3 sm:-right-4 w-6 sm:w-8 h-6 sm:h-8 bg-orange-400 rounded-full opacity-70 animate-pulse delay-1000"></div>
+            <div class="hidden sm:block absolute -bottom-3 sm:-bottom-4 -left-3 sm:-left-4 w-6 sm:w-8 h-6 sm:h-8 bg-red-400 rounded-full opacity-70 animate-pulse delay-2000"></div>
+            <div class="hidden sm:block absolute -bottom-3 sm:-bottom-4 -right-3 sm:-right-4 w-6 sm:w-8 h-6 sm:h-8 bg-amber-400 rounded-full opacity-70 animate-pulse delay-3000"></div>
           </div>
 
           <!-- Scoreboard -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full">
-            <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
+            <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg flex flex-col items-center">
+              <div id="highscore-display" class="text-base sm:text-lg font-bold text-amber-300 font-mono mb-1">High Score: 0</div>
               <div id="score-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">0</div>
               <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">SCORE</div>
             </div>
@@ -181,11 +132,42 @@ export class Game {
             </div>
           </div>
 
-          <!-- Instructions -->
-          <div class="bg-black bg-opacity-60 rounded-lg px-3 sm:px-6 py-3 sm:py-4 border border-amber-500 text-center">
-            <p class="text-amber-200 font-mono text-xs sm:text-sm leading-relaxed">
-              Hold SPACE to fill mugs! Release to serve. 70%+ fill = bonus points. Complete 60s levels by reaching score goals. Don't let patrons reach the bartender!
-            </p>
+          <!-- Game Info Section -->
+          <div class="w-full space-y-2 sm:space-y-3 md:space-y-4 px-2 sm:px-0">
+            <!-- Controls Info -->
+            <div class="bg-black bg-opacity-70 rounded-lg px-3 sm:px-6 py-2 sm:py-3 border border-amber-600 text-center">
+              <p class="text-amber-200 font-mono text-xs sm:text-sm">
+                <span class="text-amber-400 font-bold">↑↓/W/S</span> move • 
+                <span class="text-amber-400 font-bold">SPACE</span> fill & serve
+              </p>
+            </div>
+
+            <!-- Scoreboard (score only, no high score here) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full">
+              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
+                <div id="score-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">0</div>
+                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">SCORE</div>
+              </div>
+              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
+                <div id="level-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">1</div>
+                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">LEVEL</div>
+              </div>
+              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
+                <div id="time-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">60</div>
+                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">TIME</div>
+              </div>
+              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
+                <div id="health-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">100%</div>
+                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">HEALTH</div>
+              </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="bg-black bg-opacity-60 rounded-lg px-3 sm:px-6 py-3 sm:py-4 border border-amber-500 text-center">
+              <p class="text-amber-200 font-mono text-xs sm:text-sm leading-relaxed">
+                Hold SPACE to fill mugs! Release to serve. 70%+ fill = bonus points. Complete 60s levels by reaching score goals. Don't let patrons reach the bartender!
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -208,11 +190,22 @@ export class Game {
       MAX_FILL: this.MAX_FILL,
     });
 
+    // Update scoreboard displays
+    this.updateScoreDisplays();
+
     // Setup event listeners
     this.setupEventListeners();
 
     // Start render loop
     this.renderLoop();
+  }
+
+  // Update the score and high score displays
+  private updateScoreDisplays(): void {
+    const scoreDiv = document.getElementById('score-display');
+    if (scoreDiv) scoreDiv.textContent = String(this.state.score);
+    const highScoreDiv = document.getElementById('highscore-display');
+    if (highScoreDiv) highScoreDiv.textContent = `High Score: ${this.state.highScore}`;
   }
 
   private setupEventListeners(): void {
@@ -261,7 +254,7 @@ export class Game {
     let newLane = this.state.bartenderLane;
     if (direction === 'up' && newLane > 0) {
       newLane--;
-    } else if (direction === 'down' && newLane < 2) {
+    } else if (direction === 'down' && newLane < 3) {
       newLane++;
     }
 
@@ -400,8 +393,8 @@ export class Game {
 
     if (this.spawnAcc >= spawnInterval) {
       this.spawnAcc -= spawnInterval;
-      // Spawn patrons in all 3 lanes at once, but only if lane is empty
-      for (let lane = 0; lane < 3; lane++) {
+      // Spawn patrons in all 4 lanes at once, but only if lane is empty
+      for (let lane = 0; lane < 4; lane++) {
         // Check if there's already a patron in this lane
         const hasPatronInLane = this.state.patrons.some(p => p.lane === lane && !p.served);
         // Check if a mug is still out (forward, at patron, or sliding back) in this lane
@@ -703,11 +696,13 @@ export class Game {
 
   private updateUI(): void {
     const scoreDisplay = document.getElementById('score-display');
+    const highScoreDisplay = document.getElementById('highscore-display');
     const healthDisplay = document.getElementById('health-display');
     const levelDisplay = document.getElementById('level-display');
     const timeDisplay = document.getElementById('time-display');
 
     if (scoreDisplay) scoreDisplay.textContent = String(this.state.score);
+    if (highScoreDisplay) highScoreDisplay.textContent = `High Score: ${this.state.highScore}`;
     if (healthDisplay) healthDisplay.textContent = `${Math.floor(this.state.health)}%`;
     if (levelDisplay) levelDisplay.textContent = String(this.state.level);
     if (timeDisplay) timeDisplay.textContent = String(Math.ceil(this.state.timeLeft / 1000));

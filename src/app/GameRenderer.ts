@@ -580,26 +580,32 @@ export class GameRenderer {
     // Draw UI
 
     // Serial vertical left-side UI block only
-    // Centered TIME at top
+    // TIME at top right, aligned with HIGH SCORE
     const timeInSeconds = Math.ceil(state.timeLeft / 1000);
     ctx.textAlign = 'center';
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#FFD700';
-    ctx.fillText('TIME', CANVAS_WIDTH / 2, 38);
-
-    // (progress bar removed as requested)
-    ctx.font = 'bold 26px monospace';
+    ctx.fillText('TIME', CANVAS_WIDTH / 2, 22);
+    ctx.font = 'bold 22px monospace';
     ctx.fillStyle = timeInSeconds <= 10 ? '#FF4444' : '#44FF44';
-    ctx.fillText(`${timeInSeconds}s`, CANVAS_WIDTH / 2, 72);
+    ctx.fillText(`${timeInSeconds}s`, CANVAS_WIDTH / 2, 42);
     ctx.textAlign = 'left';
     // SCORE at top left
+    // HIGH SCORE at top left, above SCORE
     ctx.textAlign = 'left';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillStyle = '#FFD700';
+    ctx.fillText('HIGH SCORE', 20, 22);
+    ctx.font = 'bold 22px monospace';
+    ctx.fillStyle = '#FFF8DC';
+    ctx.fillText(`${state.highScore}`, 20, 42);
+    // SCORE below high score
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#FFD700';
-    ctx.fillText('SCORE', 20, 38);
+    ctx.fillText('SCORE', 20, 68);
     ctx.font = 'bold 26px monospace';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(`${state.score}`, 20, 70);
+    ctx.fillText(`${state.score}`, 20, 100);
     // HEALTH
     // Health bar at bottom center
     const healthBarWidth = 220;
