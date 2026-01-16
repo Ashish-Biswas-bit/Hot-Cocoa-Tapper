@@ -158,8 +158,10 @@ export class Game {
     // Setup event listeners
     this.setupEventListeners();
 
-    // Start render loop
-    this.renderLoop();
+    // Start render loop (ensure it always runs)
+    if (!this.renderLoopId) {
+      this.renderLoopId = requestAnimationFrame(this.renderLoop);
+    }
   }
 
   // Update the score and high score displays
@@ -192,6 +194,13 @@ export class Game {
       } else if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') {
         this.moveBartender('down');
       }
+      // If bartender is RECEIVING or CATCHING and space is pressed, start filling
+      if ((event.key === ' ' || event.key === 'Space') && (this.state.bartenderState === 'RECEIVING' || this.state.bartenderState === 'CATCHING')) {
+        this.state.bartenderState = 'FILLING_MUG';
+        this.state.isFillingMug = true;
+        this.state.currentFillLevel = 0;
+        this.state.bartenderFacing = 'left';
+      }
     }
   }
 
@@ -211,7 +220,9 @@ export class Game {
   }
 
   private moveBartender(direction: 'up' | 'down'): void {
-    if (!this.state.isPlaying || this.state.bartenderState !== 'IDLE') return;
+    if (!this.state.isPlaying) return;
+    // Allow movement in IDLE, RECEIVING, or CATCHING
+    if (!(this.state.bartenderState === 'IDLE' || this.state.bartenderState === 'RECEIVING' || this.state.bartenderState === 'CATCHING')) return;
 
     let newLane = this.state.bartenderLane;
     if (direction === 'up' && newLane > 0) {
@@ -236,10 +247,20 @@ export class Game {
       return;
     }
 
-    // Find waiting patron in current lane
+
+    // Find any patron in current lane who is not served
     const targetPatron = this.state.patrons.find(
-      p => p.lane === this.state.bartenderLane && p.isWaiting && !p.served
+      p => p.lane === this.state.bartenderLane && !p.served
     );
+
+    // If no patron in this row, show warning and do not serve a mug
+    if (!targetPatron) {
+      this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
+      this.state.isFillingMug = false;
+      this.state.currentFillLevel = 0;
+      this.state.bartenderState = 'IDLE';
+      return;
+    }
 
     const mug: Mug = {
       id: this.mugId++,
@@ -250,7 +271,7 @@ export class Game {
       fillLevel: this.state.currentFillLevel,
       state: 'sliding_forward',
       isEmpty: false,
-      targetPatronId: targetPatron?.id,
+      targetPatronId: targetPatron.id,
     };
 
     this.state.mugs.push(mug);
@@ -288,6 +309,8 @@ export class Game {
   }
 
   private gameLoop = (): void => {
+
+
     if (!this.state.isPlaying || this.state.gameOver) {
       this.gameLoopId = null;
       return;
@@ -478,11 +501,16 @@ export class Game {
     this.state.health = Math.max(0, this.state.health - patronHealthLoss);
 
     // Handle mug filling
-    if (this.keysHeld.has(' ') || this.keysHeld.has('Space')) {
-      this.state.isFillingMug = true;
-      this.state.bartenderState = 'FILLING_MUG';
-      this.state.bartenderFacing = 'left';
-      this.state.currentFillLevel = Math.min(this.MAX_FILL, this.state.currentFillLevel + this.FILL_SPEED);
+    if ((this.keysHeld.has(' ') || this.keysHeld.has('Space'))) {
+      // Only allow filling if bartender is IDLE or RECEIVING
+      if (this.state.bartenderState === 'IDLE' || this.state.bartenderState === 'RECEIVING') {
+        this.state.isFillingMug = true;
+        this.state.bartenderState = 'FILLING_MUG';
+        this.state.bartenderFacing = 'left';
+        this.state.currentFillLevel = Math.min(this.MAX_FILL, this.state.currentFillLevel + this.FILL_SPEED);
+      } else if (this.state.bartenderState === 'FILLING_MUG') {
+        this.state.currentFillLevel = Math.min(this.MAX_FILL, this.state.currentFillLevel + this.FILL_SPEED);
+      }
     } else if (this.state.bartenderState === 'FILLING_MUG' && !this.state.isFillingMug) {
       this.state.bartenderState = 'IDLE';
     }
@@ -516,12 +544,14 @@ export class Game {
     }
   };
 
-  private checkMugCollisions(): { 
-    newPatrons: Patron[], 
-    newMugs: Mug[], 
-    scoreIncrease: number, 
+  // Only one correct implementation of checkMugCollisions should exist here. If you want to reset recentFailure, do it at the start of this function, e.g.:
+  // this.state.recentFailure = undefined;
+  private checkMugCollisions(): {
+    newPatrons: Patron[],
+    newMugs: Mug[],
+    scoreIncrease: number,
     healthIncrease: number,
-    healthLoss: number 
+    healthLoss: number
   } {
     const newPatrons = [...this.state.patrons];
     const newMugs = [...this.state.mugs];
@@ -561,12 +591,6 @@ export class Game {
             this.state.totalServes++;
             if (mug.fillLevel >= this.MIN_ACCEPTABLE_FILL) {
               this.state.perfectServes++;
-            }
-            
-            // Screen shake and combo popup for big combos!
-            if (this.state.combo >= 3) {
-              this.state.screenShake = Math.min(15, this.state.combo * 2);
-              this.state.comboPopup = { value: this.state.combo, timestamp: now };
             }
             
             // Screen shake and combo popup for big combos!
@@ -644,18 +668,35 @@ export class Game {
         const mugY = mug.y;
         const inCatchRange = mug.x <= this.BARTENDER_X + this.CATCH_RANGE && 
                             mug.x >= this.BARTENDER_X - 20;
-        
-        if (inCatchRange && Math.abs(mugY - bartenderY) < 30) {
-          // Successfully caught!
-          newMugs.splice(mugIndex, 1);
-          scoreIncrease += 20;
-        } else if (mug.x <= this.BARTENDER_X - 40) {
-          // FAILURE: Missed the catch!
-          newMugs.splice(mugIndex, 1);
-          healthLoss += 15;
-          scoreIncrease -= Math.floor(20 * this.state.combo); // Penalty scales with combo
-          this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
-          this.state.combo = 0; // MISS - reset combo
+
+        // Bartender is RECEIVING if a mug is returning in his lane and not in catch range
+        if (mug.lane === this.state.bartenderLane) {
+          if (inCatchRange && Math.abs(mugY - bartenderY) < 30) {
+            // Always set CATCHING if in catch range and not filling
+            if (this.state.bartenderState !== 'FILLING_MUG') {
+              this.state.bartenderState = 'CATCHING';
+            }
+            // Only catch if not filling
+            if (this.state.bartenderState === 'CATCHING') {
+              // Successfully caught!
+              newMugs.splice(mugIndex, 1);
+              scoreIncrease += 20;
+              // After catching, do not set RECEIVING here; let next frame handle state
+            }
+          } else if (mug.x <= this.BARTENDER_X - 40) {
+            // FAILURE: Missed the catch!
+            newMugs.splice(mugIndex, 1);
+            healthLoss += 15;
+            scoreIncrease -= Math.floor(20 * this.state.combo); // Penalty scales with combo
+            this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
+            this.state.combo = 0; // MISS - reset combo
+            this.state.bartenderState = 'IDLE';
+          } else {
+            // Mug is returning but not in catch range: RECEIVING
+            if (this.state.bartenderState !== 'FILLING_MUG') {
+              this.state.bartenderState = 'RECEIVING';
+            }
+          }
         }
       }
     }
@@ -677,10 +718,15 @@ export class Game {
     if (timeDisplay) timeDisplay.textContent = String(Math.ceil(this.state.timeLeft / 1000));
   }
 
+  private renderLoopId: number | null = null;
   private renderLoop = (): void => {
     if (this.renderer) {
       this.renderer.render(this.state);
     }
-    requestAnimationFrame(this.renderLoop);
+    // Only clear recentFailure after 2 seconds so warning is visible for the intended duration
+    if (this.state.recentFailure && Date.now() - this.state.recentFailure.timestamp > 2000) {
+      this.state.recentFailure = undefined;
+    }
+    this.renderLoopId = requestAnimationFrame(this.renderLoop);
   };
 }

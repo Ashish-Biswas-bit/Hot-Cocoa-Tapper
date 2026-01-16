@@ -13,7 +13,8 @@ interface GameConstants {
 export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
   private constants: GameConstants;
-  private bartenderImg: HTMLImageElement | null = null;
+  private bartenderImgs: { [pose: string]: HTMLImageElement } = {};
+  private emptyMugImg: HTMLImageElement | null = null;
   private backgroundImg: HTMLImageElement | null = null;
   private mugImg: HTMLImageElement | null = null;
   private patronImgs: HTMLImageElement[] = [];
@@ -30,9 +31,31 @@ export class GameRenderer {
   }
 
   private loadImages(): void {
-    // Load bartender
-    this.bartenderImg = new Image();
-    this.bartenderImg.src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/Character_HCT_Tapper_WithMug.png';
+      // Load empty mug image (replace URL with your own)
+      this.emptyMugImg = new Image();
+      this.emptyMugImg.src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/empty_mug.png';
+    // Load bartender poses (replace URLs with your own)
+    this.bartenderImgs['idle'] = new Image();
+    this.bartenderImgs['idle'].src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_Empty_hands_1.png';
+
+    'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_Empty_hands_2.png';
+
+    this.bartenderImgs['filling'] = new Image();
+    this.bartenderImgs['filling'].src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_refilling_mug_1.png';
+    'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_refilling_mug_2.png';
+    'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_refilling_mug_3.png';
+
+    this.bartenderImgs['serving'] = new Image();
+    this.bartenderImgs['serving'].src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_serving_1.png';
+    'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_serving_2.png';
+    'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_serving_3.png';
+
+    this.bartenderImgs['catching'] = new Image();
+    this.bartenderImgs['catching'].src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_catch_empty_mug.png';
+
+    this.bartenderImgs['receiving'] = new Image();
+    this.bartenderImgs['receiving'].src = 'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_receiving_1.png';
+    'https://0199d9cb-ffe1-73b1-8e8d-3be2409e6e3b.mochausercontent.com/bartender_receiving_2.png';
 
     // Load background
     this.backgroundImg = new Image();
@@ -146,75 +169,60 @@ export class GameRenderer {
       }
     }
 
-    // Draw bartender with rotation animation
+    // Draw bartender with pose-based animation
     const bartenderY = this.getLaneY(state.bartenderLane);
-    if (this.bartenderImg && this.bartenderImg.complete) {
-      const spriteSize = 64;
-      
-      ctx.save();
-      ctx.translate(BARTENDER_X, bartenderY);
-      
-      // Rotation based on bartender state and facing
-      let rotation = 0;
-      if (state.bartenderState === 'FILLING_MUG') {
-        // Lean forward slightly when filling
-        rotation = 0.08;
-      } else if (state.bartenderState === 'SLIDING_MUG') {
-        // Serve throwing motion
-        rotation = Math.sin(this.animationFrame * 0.5) * 0.15;
-      }
-      
-      // Apply rotation
-      ctx.rotate(rotation);
-      
-      // Flip sprite based on facing direction
-      if (state.bartenderFacing === 'right') {
-        ctx.scale(-1, 1);
-      }
-      
-      // Add state-based vertical animation
-      let offsetY = 0;
-      let offsetX = 0;
-      if (state.bartenderState === 'FILLING_MUG') {
-        // Bobbing while filling
-        offsetY = Math.sin(this.animationFrame * 0.3) * 3;
-      } else if (state.bartenderState === 'SLIDING_MUG') {
-        // Lean into throw
-        offsetX = Math.sin(this.animationFrame * 0.5) * 4;
-      }
-      
+    let pose = 'idle';
+    if (state.bartenderState === 'FILLING_MUG') pose = 'filling';
+    else if (state.bartenderState === 'SLIDING_MUG') pose = 'serving';
+    else if (state.bartenderState === 'CATCHING') pose = 'catching';
+    else if (state.bartenderState === 'RECEIVING') pose = 'receiving';
+
+    const bartenderImg = this.bartenderImgs[pose];
+    const spriteSize = 64;
+    ctx.save();
+    ctx.translate(BARTENDER_X, bartenderY);
+
+    // Flip sprite based on facing direction
+    if (state.bartenderFacing === 'right') {
+      ctx.scale(-1, 1);
+    }
+
+    // Add state-based vertical animation
+    let offsetY = 0;
+    let offsetX = 0;
+    if (state.bartenderState === 'FILLING_MUG') {
+      offsetY = Math.sin(this.animationFrame * 0.3) * 3;
+    } else if (state.bartenderState === 'SLIDING_MUG') {
+      offsetX = Math.sin(this.animationFrame * 0.5) * 4;
+    }
+
+    if (bartenderImg && bartenderImg.complete) {
       ctx.drawImage(
-        this.bartenderImg,
+        bartenderImg,
         -spriteSize / 2 + offsetX,
         -spriteSize / 2 + offsetY,
         spriteSize,
         spriteSize
       );
-      
-      ctx.restore();
-      
-      // Draw action indicator with movement
-      if (state.bartenderState !== 'IDLE') {
-        const indicatorOffset = Math.sin(this.animationFrame * 0.2) * 3;
-        ctx.fillStyle = state.bartenderState === 'FILLING_MUG' ? '#FFD700' : '#44FF44';
-        ctx.font = 'bold 11px monospace';
-        ctx.textAlign = 'center';
-        const stateText = state.bartenderState === 'FILLING_MUG' ? '⤵ FILL' : '⤴ SERVE';
-        ctx.fillText(stateText, BARTENDER_X, bartenderY - 45 + indicatorOffset);
-      }
     } else {
       // Fallback bartender
       ctx.fillStyle = '#4A90E2';
-      ctx.fillRect(BARTENDER_X - 20, bartenderY - 25, 40, 50);
+      ctx.fillRect(-spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('BARTENDER', BARTENDER_X, bartenderY + 5);
-      
-      // Direction arrow
-      ctx.fillStyle = '#FFD700';
-      const arrowX = state.bartenderFacing === 'right' ? BARTENDER_X + 25 : BARTENDER_X - 25;
-      ctx.fillText(state.bartenderFacing === 'right' ? '→' : '←', arrowX, bartenderY);
+      ctx.fillText('BARTENDER', 0, 5);
+    }
+    ctx.restore();
+
+    // Draw action indicator with movement
+    if (state.bartenderState !== 'IDLE') {
+      const indicatorOffset = Math.sin(this.animationFrame * 0.2) * 3;
+      ctx.fillStyle = state.bartenderState === 'FILLING_MUG' ? '#FFD700' : '#44FF44';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      const stateText = state.bartenderState === 'FILLING_MUG' ? '⤵ FILL' : '⤴ SERVE';
+      ctx.fillText(stateText, BARTENDER_X, bartenderY - 45 + indicatorOffset);
     }
 
     // Draw patrons
@@ -387,7 +395,7 @@ export class GameRenderer {
           ctx.fillStyle = '#FFFFFF';
           ctx.font = '14px monospace';
           ctx.textAlign = 'center';
-          ctx.fillText('😊', 0, 5);
+          ctx.fillText('HAPPY', 0, 5);
 
           ctx.restore();
         } else {
@@ -406,14 +414,18 @@ export class GameRenderer {
             ctx.rotate(drinkingTilt);
           }
 
+
           ctx.fillStyle = patron.isDrinking ? '#32CD32' : (patron.isWaiting ? '#4A90E2' : '#FF6B6B');
           ctx.fillRect(-sizeW / 2, -sizeH / 2, sizeW, sizeH);
 
           ctx.fillStyle = '#FFFFFF';
           ctx.font = '14px monospace';
           ctx.textAlign = 'center';
-          const emoji = patron.isDrinking ? '🍺' : (patron.isWaiting ? '😐' : '😡');
-          ctx.fillText(emoji, 0, 5);
+          let fallbackText = '';
+          if (patron.isDrinking) fallbackText = 'DRINK';
+          else if (patron.isWaiting) fallbackText = 'WAIT';
+          else fallbackText = 'ANGRY';
+          ctx.fillText(fallbackText, 0, 5);
 
           ctx.restore();
 
@@ -471,7 +483,7 @@ export class GameRenderer {
       
       if (this.mugImg && this.mugImg.complete) {
         const mugSize = 32;
-        
+
         // Add bobbing/sliding motion effect
         let wobble = 0;
         let tilt = 0;
@@ -482,19 +494,17 @@ export class GameRenderer {
           wobble = Math.sin(this.animationFrame * 0.35 + mug.id * 0.5) * 2.5;
           tilt = Math.sin(this.animationFrame * 0.3 + mug.id * 0.3) * -0.08;
         }
-        
-        // Gray out empty mugs
-        if (mug.isEmpty) {
-          ctx.globalAlpha = 0.6;
-          ctx.filter = 'grayscale(100%)';
-        }
-        
+
         ctx.save();
         ctx.translate(mug.x, mug.y + wobble);
         ctx.rotate(tilt);
-        ctx.drawImage(this.mugImg, -mugSize / 2, -mugSize / 2, mugSize, mugSize);
+        if (mug.isEmpty && this.emptyMugImg && this.emptyMugImg.complete) {
+          ctx.drawImage(this.emptyMugImg, -mugSize / 2, -mugSize / 2, mugSize, mugSize);
+        } else {
+          ctx.drawImage(this.mugImg, -mugSize / 2, -mugSize / 2, mugSize, mugSize);
+        }
         ctx.restore();
-        
+
         ctx.globalAlpha = 1.0;
         ctx.filter = 'none';
 

@@ -15,7 +15,7 @@ export interface Patron {
 }
 
 export type MugState = 'sliding_forward' | 'at_patron' | 'sliding_back' | 'empty';
-export type BartenderState = 'IDLE' | 'FILLING_MUG' | 'SLIDING_MUG';
+export type BartenderState = 'IDLE' | 'FILLING_MUG' | 'SLIDING_MUG' | 'CATCHING' | 'RECEIVING';
 
 export interface Mug {
   id: number;
