@@ -111,26 +111,6 @@ export class Game {
             <div class="hidden sm:block absolute -bottom-3 sm:-bottom-4 -right-3 sm:-right-4 w-6 sm:w-8 h-6 sm:h-8 bg-amber-400 rounded-full opacity-70 animate-pulse delay-3000"></div>
           </div>
 
-          <!-- Scoreboard -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full">
-            <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg flex flex-col items-center">
-              <div id="highscore-display" class="text-base sm:text-lg font-bold text-amber-300 font-mono mb-1">High Score: 0</div>
-              <div id="score-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">0</div>
-              <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">SCORE</div>
-            </div>
-            <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-              <div id="level-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">1</div>
-              <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">LEVEL</div>
-            </div>
-            <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-              <div id="time-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">60</div>
-              <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">TIME</div>
-            </div>
-            <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-              <div id="health-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">100%</div>
-              <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">HEALTH</div>
-            </div>
-          </div>
 
           <!-- Game Info Section -->
           <div class="w-full space-y-2 sm:space-y-3 md:space-y-4 px-2 sm:px-0">
@@ -142,25 +122,7 @@ export class Game {
               </p>
             </div>
 
-            <!-- Scoreboard (score only, no high score here) -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full">
-              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-                <div id="score-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">0</div>
-                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">SCORE</div>
-              </div>
-              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-                <div id="level-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">1</div>
-                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">LEVEL</div>
-              </div>
-              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-                <div id="time-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">60</div>
-                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">TIME</div>
-              </div>
-              <div class="bg-gradient-to-br from-amber-900 to-amber-950 rounded-lg px-2 sm:px-4 py-2 sm:py-4 border border-amber-600 text-center shadow-lg">
-                <div id="health-display" class="text-xl sm:text-3xl font-bold text-amber-200 font-mono">100%</div>
-                <div class="text-xs sm:text-sm text-amber-400 font-mono font-bold mt-1">HEALTH</div>
-              </div>
-            </div>
+            
 
             <!-- Instructions -->
             <div class="bg-black bg-opacity-60 rounded-lg px-3 sm:px-6 py-3 sm:py-4 border border-amber-500 text-center">
