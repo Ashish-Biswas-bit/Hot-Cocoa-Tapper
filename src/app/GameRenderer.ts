@@ -287,6 +287,13 @@ export class GameRenderer {
         ctx.save();
         ctx.translate(animatedX, animatedY);
 
+        // Flip sprite horizontally when approaching (not served)
+        let flip = false;
+        if (!patron.served) {
+          ctx.scale(-1, 1);
+          flip = true;
+        }
+
         if (!patron.isWaiting && !patron.served && !patron.isDrinking) {
           ctx.rotate(walkTilt);
         }
@@ -309,17 +316,32 @@ export class GameRenderer {
         const srcWidth = imgWidth - edgeCrop * 2;
         const srcHeight = imgHeight - edgeCrop * 2;
 
-        ctx.drawImage(
-          patronImg,
-          srcX,
-          srcY,
-          srcWidth,
-          srcHeight,
-          -animatedSizeW / 2,
-          -animatedSizeH / 2,
-          animatedSizeW,
-          animatedSizeH
-        );
+        // If flipped, draw image mirrored
+        if (flip) {
+          ctx.drawImage(
+            patronImg,
+            srcX,
+            srcY,
+            srcWidth,
+            srcHeight,
+            (-animatedSizeW / 2) * -1 - animatedSizeW, // flip X
+            -animatedSizeH / 2,
+            animatedSizeW,
+            animatedSizeH
+          );
+        } else {
+          ctx.drawImage(
+            patronImg,
+            srcX,
+            srcY,
+            srcWidth,
+            srcHeight,
+            -animatedSizeW / 2,
+            -animatedSizeH / 2,
+            animatedSizeW,
+            animatedSizeH
+          );
+        }
 
         ctx.restore();
 
@@ -677,15 +699,19 @@ export class GameRenderer {
       ctx.font = 'bold 24px monospace';
       ctx.fillText(`Final Score: ${state.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30);
 
-      const requiredScore = state.level * 1000;
       if (state.health <= 0) {
         ctx.fillStyle = '#FF6666';
         ctx.font = 'bold 20px monospace';
         ctx.fillText('Health depleted!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
-      } else if (state.score < requiredScore) {
+      } else if (state.score === state.highScore && state.highScore > 0) {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 26px monospace';
+        ctx.fillText('New High Score!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
+      } else if (state.score > 0 && state.score < state.highScore) {
         ctx.fillStyle = '#FF6666';
         ctx.font = 'bold 20px monospace';
-        ctx.fillText(`Score too low! Needed ${requiredScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
+        const z = state.highScore - state.score;
+        ctx.fillText(`Score too low! ${z} required`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
       }
 
       ctx.fillStyle = '#FFFFFF';

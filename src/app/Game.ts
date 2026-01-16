@@ -357,6 +357,13 @@ export class Game {
         }
       } else {
         // Game over
+        // Only add leftover points (score - requiredScore) to high score
+        const leftover = this.state.score - requiredScore;
+        if (leftover > 0 && leftover > this.state.highScore) {
+          this.state.highScore = leftover;
+          localStorage.setItem('hotcocoatapper_highscore', String(this.state.highScore));
+        }
+        this.state.requiredScoreAtGameOver = requiredScore;
         this.state.gameOver = true;
         this.state.isPlaying = false;
         this.state.timeLeft = 0;

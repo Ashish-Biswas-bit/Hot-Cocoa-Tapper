@@ -57,4 +57,5 @@ export interface GameState {
   totalServes: number;
   perfectServes: number;
   highScore: number;
+  requiredScoreAtGameOver?: number;
 }
