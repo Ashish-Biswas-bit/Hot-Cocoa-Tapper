@@ -592,8 +592,15 @@ export class GameRenderer {
         ctx.globalAlpha = opacity;
 
         const failureY = CANVAS_HEIGHT / 2;
-        const failureColor = state.recentFailure.type === 'miss' ? '#FF4444' : '#FF6666';
-        const failureText = state.recentFailure.type === 'miss' ? '✗ MISSED CATCH!' : '✗ PATRON TIMEOUT!';
+        let failureColor = '#FF4444';
+        let failureText = '✗ MISSED CATCH!';
+        if (state.recentFailure.type === 'timeout') {
+          failureColor = '#FF6666';
+          failureText = '✗ PATRON TIMEOUT!';
+        } else if (state.recentFailure.type === 'serve_fail') {
+          failureColor = '#FFAA00';
+          failureText = '✗ NO PATRON TO SERVE!';
+        }
 
         // Draw failure message with outline
         ctx.fillStyle = failureColor;

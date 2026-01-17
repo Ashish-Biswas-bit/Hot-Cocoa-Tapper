@@ -46,7 +46,7 @@ export interface GameState {
   timeLeft: number;
   levelStartTime: number;
   recentFailure?: {
-    type: 'miss' | 'timeout';
+    type: 'miss' | 'timeout' | 'serve_fail';
     timestamp: number;
   };
   combo: number;

@@ -255,7 +255,8 @@ export class Game {
 
     // If no patron in this row, show warning and do not serve a mug
     if (!targetPatron) {
-      this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
+      this.state.recentFailure = { type: 'serve_fail', timestamp: Date.now() };
+      console.log('Warning: Tried to serve with no patron');
       this.state.isFillingMug = false;
       this.state.currentFillLevel = 0;
       this.state.bartenderState = 'IDLE';
@@ -684,11 +685,12 @@ export class Game {
               // After catching, do not set RECEIVING here; let next frame handle state
             }
           } else if (mug.x <= this.BARTENDER_X - 40) {
-            // FAILURE: Missed the catch!
+            // FAILURE: Missed the catch in correct lane!
             newMugs.splice(mugIndex, 1);
             healthLoss += 15;
             scoreIncrease -= Math.floor(20 * this.state.combo); // Penalty scales with combo
             this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
+            console.log('Warning: Missed mug catch!');
             this.state.combo = 0; // MISS - reset combo
             this.state.bartenderState = 'IDLE';
           } else {
@@ -697,6 +699,14 @@ export class Game {
               this.state.bartenderState = 'RECEIVING';
             }
           }
+        } else if (mug.x <= this.BARTENDER_X - 40) {
+          // FAILURE: Missed the catch in wrong lane!
+          newMugs.splice(mugIndex, 1);
+          healthLoss += 15;
+          scoreIncrease -= Math.floor(20 * this.state.combo); // Penalty scales with combo
+          this.state.recentFailure = { type: 'miss', timestamp: Date.now() };
+          console.log('Warning: Missed mug catch (wrong lane)!');
+          this.state.combo = 0; // MISS - reset combo
         }
       }
     }
