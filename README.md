@@ -1,6 +1,7 @@
 # ☕ Hot Cocoa Tapper
 
 ## 📦 Dependencies & Configuration
+
 This project uses several tools, libraries, and configuration files. Here is a summary of what is used and where to configure or modify them:
 
 ### Main Dependencies
@@ -192,7 +193,7 @@ This is a Mocha community project! Want to contribute?
 
 ## 📄 License
 
-Built with ☕ and ❤️ for the Mocha community.
+Made by coco craft for the Mocha community.
 
 ## 🙏 Credits
 
